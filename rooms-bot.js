@@ -137,7 +137,7 @@ client.on('interactionCreate', async (interaction) => {
         .setColor(0x00AE86)
         .setDescription(
           "**1. Instrumentos a revisar:**\nPC, TV, Cámara, Teclado, Mouse, Trípode, Aro de Luz, Caja de Luz, Sombrilla, Espejo, Forro, Colchón, Silla, Sábanas, Cojines, Lámpara, Decoración, Trapero.\n\n" +
-          "**2. Higiene adecuada:**\nLimpieza general del room: Room limpio y ordenado / Superficies desinfectadas / Silla, cámara y luz en buen estado /  Mouse, teclado y monitor funcionando / No hay basura ni objetos personales del turno anterior."
+          "**2. Higiene adecuada:**\nLimpieza general del room: limpio y ordenado / Superficies desinfectadas / Silla, cámara y luz funcionan /  Mouse, teclado y monitor funcionan / No hay basura ni objetos personales."
         );
       await interaction.reply({ embeds: [checklist], components: roomRows, ephemeral: true });
       return;
@@ -340,5 +340,6 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
 
 
