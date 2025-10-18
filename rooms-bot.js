@@ -229,7 +229,7 @@ client.on('interactionCreate', async (interaction) => {
           const modal = new ModalBuilder()
             .setCustomId(`resultado_modal::${encode(room)}`)
             .setTitle(`Resultados — ${room}`);
-          const platforms = ['AdultWork', 'Stripchat', 'Stremate', 'BongaCams'];
+          const platforms = ['AdultWork', 'Stripchat', 'Streamate', 'BongaCams'];
           platforms.forEach(p => {
             const input = new TextInputBuilder()
               .setCustomId(`resultado_${p}`)
@@ -340,3 +340,4 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
