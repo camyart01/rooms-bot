@@ -395,6 +395,45 @@ client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
 
+// ===================== TEST DE CONEXIÓN GOOGLE SHEETS =====================
+import { google } from 'googleapis';
+
+// Verificar conexión a Google Sheets al iniciar el bot
+async function testGoogleSheets() {
+  try {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    const sheetId = process.env.GOOGLE_SHEET_ID;
+
+    if (!credentials || !sheetId) {
+      console.error("❌ No se encontraron variables de entorno GOOGLE_CREDENTIALS o GOOGLE_SHEET_ID");
+      return;
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const sheets = google.sheets({ version: "v4", auth });
+
+    const testRange = "Test!A1:B2";
+    const values = [["✅ Conexión Exitosa", new Date().toLocaleString()]];
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: testRange,
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
+
+    console.log("✅ Conexión exitosa: prueba escrita en la hoja 'Test'");
+  } catch (err) {
+    console.error("❌ Error conectando con Google Sheets:", err.message);
+  }
+}
+
+testGoogleSheets();
+
 
 
 
