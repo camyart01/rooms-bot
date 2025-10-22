@@ -287,8 +287,14 @@ try {
   const { google } = require('googleapis');
 
   // Credenciales (desde variables de entorno)
-  const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-  if (creds.private_key) creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+  const { GoogleSpreadsheet } = require('google-spreadsheet');
+
+  const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+  await doc.useServiceAccountAuth({
+  client_email: process.env.GOOGLE_CLIENT_EMAIL,
+  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+});
+
 
   // Autenticación con cuenta de servicio
   const sheetsClient = new google.auth.JWT(
@@ -433,6 +439,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
