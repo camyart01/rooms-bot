@@ -282,34 +282,88 @@ client.on('interactionCreate', async (interaction) => {
         const totalDiario = Object.values(results).reduce((a,b)=>a+b,0);
 
         // Guardar en Excel
-        const file = './resultados.xlsx';
-        let wb = fs.existsSync(file) ? XLSX.readFile(file) : XLSX.utils.book_new();
-        let ws;
-        if (wb.Sheets[username]) ws = wb.Sheets[username];
-        else {
-          ws = XLSX.utils.json_to_sheet([]);
-          XLSX.utils.book_append_sheet(wb, ws, username);
-        }
+        // --- Guardar en Google Sheets ---
+try {
+  const { google } = require('googleapis');
 
-        const jsonData = XLSX.utils.sheet_to_json(ws, { defval:0 });
-        const today = new Date().toISOString().slice(0,10);
-        const weekDay = new Date().getDay();
-        if (weekDay === 0 && jsonData.length>0) jsonData.length = 0;
+  // Credenciales (desde variables de entorno)
+  const creds = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+  if (creds.private_key) creds.private_key = creds.private_key.replace(/\\n/g, '\n');
 
-        const acumuladoAnterior = jsonData.reduce((acc,row)=>{
-          platforms.forEach(p=>acc[p]=(acc[p]||0)+(row[p]||0));
-          return acc;
-        },{});
+  // Autenticación con cuenta de servicio
+  const sheetsClient = new google.auth.JWT(
+    creds.client_email,
+    null,
+    creds.private_key,
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
+  const sheetsApi = google.sheets({ version: 'v4', auth: sheetsClient });
 
-        const newRow = { Fecha: today, ...results };
-        platforms.forEach(p=>newRow[`Acumulado_${p}`]=(acumuladoAnterior[p]||0)+results[p]);
-        newRow['Total_Diario'] = totalDiario;
-        newRow['Acumulado_Semana'] = (jsonData.reduce((acc,row)=>acc+(row['Total_Diario']||0),0)) + totalDiario;
-        jsonData.push(newRow);
+  // ID del documento (de Render)
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  const fecha = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+  const username = interaction.user.username;
 
-        const newSheet = XLSX.utils.json_to_sheet(jsonData);
-        wb.Sheets[username] = newSheet;
-        XLSX.writeFile(wb,file);
+  // Verificar si la hoja existe, si no crearla
+  const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
+  const existing = meta.data.sheets.find(s => s.properties.title === username);
+  if (!existing) {
+    await sheetsApi.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title: username } } }] }
+    });
+    await sheetsApi.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${username}!A1:H1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora']] }
+    });
+  }
+
+  // Leer datos existentes
+  const existingData = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${username}!A2:H`
+  });
+  const rows = existingData.data.values || [];
+
+  // Si es domingo, limpiar (reinicio semanal)
+  const today = new Date();
+  if (today.getDay() === 0 && rows.length > 0) {
+    await sheetsApi.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${username}!A2:H`
+    });
+  }
+
+  // Calcular acumulado
+  const acumuladoPrevio = rows.reduce((acc, r) => acc + (parseInt(r[5]) || 0), 0);
+  const acumuladoNuevo = acumuladoPrevio + totalDiario;
+
+  // Registrar nueva fila
+  const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
+  const nuevaFila = [
+    fecha,
+    results['AdultWork'],
+    results['Stripchat'],
+    results['Streamate'],
+    results['BongaCams'],
+    totalDiario,
+    acumuladoNuevo,
+    hora
+  ];
+
+  await sheetsApi.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${username}!A:H`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [nuevaFila] }
+  });
+
+  console.log(`✅ Resultados de ${username} guardados correctamente en Google Sheets.`);
+} catch (err) {
+  console.error('❌ Error guardando en Google Sheets:', err);
+}
 
         try {
           const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
@@ -340,6 +394,7 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
 
 
 
