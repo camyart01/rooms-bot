@@ -396,7 +396,7 @@ client.login(TOKEN).catch(err => {
 });
 
 // ===================== TEST DE CONEXIÓN GOOGLE SHEETS =====================
-import { google } from 'googleapis';
+const { google } = require('googleapis');
 
 // Verificar conexión a Google Sheets al iniciar el bot
 async function testGoogleSheets() {
@@ -433,6 +433,8 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
+
 
 
 
