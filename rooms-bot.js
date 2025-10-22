@@ -287,6 +287,7 @@ try {
   const { google } = require('googleapis');
 
   // Credenciales (desde variables de entorno)
+  console.log("GOOGLE_CREDENTIALS exists?", !!process.env.GOOGLE_CREDENTIALS);
   const { GoogleSpreadsheet } = require('google-spreadsheet');
 
   const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
@@ -439,6 +440,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
