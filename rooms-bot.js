@@ -284,19 +284,20 @@ client.on('interactionCreate', async (interaction) => {
         // Guardar en Excel
         // --- Guardar en Google Sheets ---
 // --- Guardar en Google Sheets ---
+// ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
 try {
-  const { google } = require('googleapis');
+  await interaction.deferReply({ ephemeral: true });
 
+  const { google } = require('googleapis');
   const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
   if (!credentials || !spreadsheetId) {
     console.error("❌ Faltan GOOGLE_CREDENTIALS o GOOGLE_SHEET_ID");
-    await interaction.reply({ content: '❌ Error interno (configuración incompleta).', ephemeral: true });
+    await interaction.editReply({ content: '❌ Error interno (configuración incompleta).' });
     return;
   }
 
-  // Autenticación con cuenta de servicio
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -307,7 +308,7 @@ try {
   const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
   const username = interaction.user.username;
 
-  // 1️⃣ Verificar si existe la hoja de la modelo
+  // 🔹 Verificar si existe la hoja del usuario
   const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
   const existingSheet = meta.data.sheets.find(s => s.properties.title === username);
 
@@ -315,11 +316,7 @@ try {
     console.log(`📄 Creando hoja nueva para ${username}`);
     await sheetsApi.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: {
-        requests: [
-          { addSheet: { properties: { title: username } } },
-        ],
-      },
+      requestBody: { requests: [{ addSheet: { properties: { title: username } } }] },
     });
     await sheetsApi.spreadsheets.values.update({
       spreadsheetId,
@@ -329,14 +326,14 @@ try {
     });
   }
 
-  // 2️⃣ Obtener datos previos (para el acumulado)
+  // 🔹 Leer datos existentes
   const existingData = await sheetsApi.spreadsheets.values.get({
     spreadsheetId,
     range: `${username}!A2:H`,
   });
   const rows = existingData.data.values || [];
 
-  // 3️⃣ Reinicio semanal (si es domingo)
+  // 🔹 Reiniciar semanalmente (domingo)
   const today = new Date();
   if (today.getDay() === 0 && rows.length > 0) {
     await sheetsApi.spreadsheets.values.clear({
@@ -345,11 +342,10 @@ try {
     });
   }
 
-  // 4️⃣ Calcular nuevo acumulado
+  // 🔹 Calcular acumulado semanal
   const acumuladoPrevio = rows.reduce((acc, r) => acc + (parseInt(r[5]) || 0), 0);
   const acumuladoNuevo = acumuladoPrevio + totalDiario;
 
-  // 5️⃣ Registrar nueva fila
   const nuevaFila = [
     fecha,
     results['AdultWork'],
@@ -369,33 +365,36 @@ try {
   });
 
   console.log(`✅ Resultados de ${username} guardados correctamente en Google Sheets.`);
-} catch (err) {
-  console.error('❌ Error guardando en Google Sheets:', err.message);
-} 
-        try {
-          const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
-          const embed = new EmbedBuilder()
-            .setTitle('✅ Resultados enviados')
-            .setDescription(`Modelo: ${user}\nRoom: ${room}\nFecha y hora: ${getDateTime()}`)
-            .addFields(...platforms.map(p=>({name: p, value: `${results[p]}`, inline:true})),
-                       { name: 'Total Diario', value: `${totalDiario}`, inline:true },
-                       { name: 'Acumulado Semana', value: `${newRow['Acumulado_Semana']}`, inline:true })
-            .setTimestamp();
-          await resultsChannel.send({ embeds: [embed] });
-          await interaction.reply({ content: '✅ Resultados enviados correctamente.', ephemeral: true });
-        } catch {
-          await interaction.reply({ content: '❌ Error enviando resultados.', ephemeral: true });
-        }
-      }
-    }
 
-  } catch (err) {
-    console.error('Error en interactionCreate:', err);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ Ocurrió un error interno. Intenta de nuevo.', ephemeral: true });
+  // 🔹 Enviar al canal de resultados
+  const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
+  const embed = new EmbedBuilder()
+    .setTitle('✅ Resultados enviados')
+    .setDescription(`Modelo: ${user}\nRoom: ${room}\nFecha y hora: ${fecha} ${hora}`)
+    .addFields(
+      ...platforms.map(p => ({ name: p, value: `${results[p]}`, inline: true })),
+      { name: 'Total Diario', value: `${totalDiario}`, inline: true },
+      { name: 'Acumulado Semana', value: `${acumuladoNuevo}`, inline: true }
+    )
+    .setTimestamp();
+
+  await resultsChannel.send({ embeds: [embed] });
+
+  // 🔹 Editar respuesta final
+  await interaction.editReply({ content: '✅ Tus resultados fueron guardados correctamente y enviados al canal de resultados.' });
+
+} catch (err) {
+  console.error('❌ Error guardando o enviando resultados:', err);
+  try {
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: '⚠️ Hubo un error al guardar o enviar los resultados. Inténtalo de nuevo.' });
+    } else {
+      await interaction.reply({ content: '⚠️ Hubo un error al procesar tu solicitud.', ephemeral: true });
     }
+  } catch (replyErr) {
+    console.error('Error enviando mensaje de error:', replyErr);
   }
-});
+}
 
 // ---------- login ----------
 client.login(TOKEN).catch(err => {
@@ -439,6 +438,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
