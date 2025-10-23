@@ -391,10 +391,7 @@ try {
     } else {
       await interaction.reply({ content: '⚠️ Hubo un error al procesar tu solicitud.', ephemeral: true });
     }
-  } catch (replyErr) {
-    console.error('Error enviando mensaje de error:', replyErr);
   }
- }
 });
 // ---------- login ----------
 client.login(TOKEN).catch(err => {
@@ -438,6 +435,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
