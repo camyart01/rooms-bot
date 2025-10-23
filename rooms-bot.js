@@ -371,9 +371,7 @@ try {
   console.log(`✅ Resultados de ${username} guardados correctamente en Google Sheets.`);
 } catch (err) {
   console.error('❌ Error guardando en Google Sheets:', err.message);
-} catch (err) {
-  console.error('❌ Error guardando en Google Sheets:', err);
-}
+} 
         try {
           const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
           const embed = new EmbedBuilder()
@@ -441,6 +439,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
