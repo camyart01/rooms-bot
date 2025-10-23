@@ -286,6 +286,7 @@ client.on('interactionCreate', async (interaction) => {
 // --- Guardar en Google Sheets ---
 // ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
 // ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
+// ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
 try {
   await interaction.deferReply({ ephemeral: true });
 
@@ -309,18 +310,21 @@ try {
   const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
   const username = interaction.user.username;
 
-  // 🔹 Definiciones necesarias para evitar errores
+  // 🔹 Variables base (ajusta según tu modal)
   const user = username;
-  const room = "Sin especificar"; // Puedes reemplazar esto si tienes un campo 'room'
+  const room = "Sin especificar"; // Puedes reemplazar por el valor real del room
   const platforms = ['AdultWork', 'Stripchat', 'Streamate', 'BongaCams'];
-  const results = {}; // Ejemplo: results['AdultWork'] = 100;
+  const results = {}; // Aquí se deben guardar los valores del modal
   let totalDiario = 0;
 
-  // Si los resultados vienen del modal o formulario, asegúrate de asignarlos así:
-  // results['AdultWork'] = Number(interaction.fields.getTextInputValue('adultwork_input') || 0);
-  // results['Stripchat'] = Number(interaction.fields.getTextInputValue('stripchat_input') || 0);
-  // ...
-  // totalDiario = Object.values(results).reduce((a, b) => a + b, 0);
+  // Ejemplo si tienes un modal:
+  /*
+  results['AdultWork'] = Number(interaction.fields.getTextInputValue('adultwork_input') || 0);
+  results['Stripchat'] = Number(interaction.fields.getTextInputValue('stripchat_input') || 0);
+  results['Streamate'] = Number(interaction.fields.getTextInputValue('streamate_input') || 0);
+  results['BongaCams'] = Number(interaction.fields.getTextInputValue('bongacams_input') || 0);
+  totalDiario = Object.values(results).reduce((a, b) => a + b, 0);
+  */
 
   // 🔹 Verificar si existe la hoja del usuario
   const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
@@ -330,13 +334,17 @@ try {
     console.log(`📄 Creando hoja nueva para ${username}`);
     await sheetsApi.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: { requests: [{ addSheet: { properties: { title: username } } }] },
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: username } } }],
+      },
     });
     await sheetsApi.spreadsheets.values.update({
       spreadsheetId,
       range: `${username}!A1:H1`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora']] },
+      requestBody: {
+        values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora']],
+      },
     });
   }
 
@@ -397,15 +405,22 @@ try {
   await resultsChannel.send({ embeds: [embed] });
 
   // 🔹 Editar respuesta final
-  await interaction.editReply({ content: '✅ Tus resultados fueron guardados correctamente y enviados al canal de resultados.' });
+  await interaction.editReply({
+    content: '✅ Tus resultados fueron guardados correctamente y enviados al canal de resultados.',
+  });
 
 } catch (err) {
   console.error('❌ Error guardando o enviando resultados:', err);
   try {
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ content: '⚠️ Hubo un error al guardar o enviar los resultados. Inténtalo de nuevo.' });
+      await interaction.editReply({
+        content: '⚠️ Hubo un error al guardar o enviar los resultados. Inténtalo de nuevo.',
+      });
     } else {
-      await interaction.reply({ content: '⚠️ Hubo un error al procesar tu solicitud.', ephemeral: true });
+      await interaction.reply({
+        content: '⚠️ Hubo un error al procesar tu solicitud.',
+        ephemeral: true,
+      });
     }
   } catch (replyErr) {
     console.error('⚠️ Error al responder la interacción:', replyErr);
@@ -454,6 +469,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
