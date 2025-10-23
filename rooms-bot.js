@@ -423,7 +423,7 @@ async function testGoogleSheets() {
 
     const sheets = google.sheets({ version: "v4", auth });
 
-    const testRange = "Test!A1:B2";
+    const range = 'Resultados!A2:E100;
     const values = [["✅ Conexión Exitosa", new Date().toLocaleString()]];
 
     await sheets.spreadsheets.values.update({
@@ -440,6 +440,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
