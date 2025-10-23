@@ -394,8 +394,8 @@ try {
   } catch (replyErr) {
     console.error('Error enviando mensaje de error:', replyErr);
   }
-}
-
+ }
+});
 // ---------- login ----------
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
@@ -438,6 +438,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
