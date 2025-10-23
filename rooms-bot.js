@@ -285,6 +285,7 @@ client.on('interactionCreate', async (interaction) => {
         // --- Guardar en Google Sheets ---
 // --- Guardar en Google Sheets ---
 // ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
+// ✅ Nuevo bloque de guardado con deferReply para evitar errores de interacción
 try {
   await interaction.deferReply({ ephemeral: true });
 
@@ -307,6 +308,19 @@ try {
   const fecha = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
   const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
   const username = interaction.user.username;
+
+  // 🔹 Definiciones necesarias para evitar errores
+  const user = username;
+  const room = "Sin especificar"; // Puedes reemplazar esto si tienes un campo 'room'
+  const platforms = ['AdultWork', 'Stripchat', 'Streamate', 'BongaCams'];
+  const results = {}; // Ejemplo: results['AdultWork'] = 100;
+  let totalDiario = 0;
+
+  // Si los resultados vienen del modal o formulario, asegúrate de asignarlos así:
+  // results['AdultWork'] = Number(interaction.fields.getTextInputValue('adultwork_input') || 0);
+  // results['Stripchat'] = Number(interaction.fields.getTextInputValue('stripchat_input') || 0);
+  // ...
+  // totalDiario = Object.values(results).reduce((a, b) => a + b, 0);
 
   // 🔹 Verificar si existe la hoja del usuario
   const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
@@ -348,10 +362,10 @@ try {
 
   const nuevaFila = [
     fecha,
-    results['AdultWork'],
-    results['Stripchat'],
-    results['Streamate'],
-    results['BongaCams'],
+    results['AdultWork'] || 0,
+    results['Stripchat'] || 0,
+    results['Streamate'] || 0,
+    results['BongaCams'] || 0,
     totalDiario,
     acumuladoNuevo,
     hora,
@@ -368,11 +382,13 @@ try {
 
   // 🔹 Enviar al canal de resultados
   const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
+  const { EmbedBuilder } = require('discord.js');
+
   const embed = new EmbedBuilder()
     .setTitle('✅ Resultados enviados')
     .setDescription(`Modelo: ${user}\nRoom: ${room}\nFecha y hora: ${fecha} ${hora}`)
     .addFields(
-      ...platforms.map(p => ({ name: p, value: `${results[p]}`, inline: true })),
+      ...platforms.map(p => ({ name: p, value: `${results[p] || 0}`, inline: true })),
       { name: 'Total Diario', value: `${totalDiario}`, inline: true },
       { name: 'Acumulado Semana', value: `${acumuladoNuevo}`, inline: true }
     )
@@ -391,8 +407,11 @@ try {
     } else {
       await interaction.reply({ content: '⚠️ Hubo un error al procesar tu solicitud.', ephemeral: true });
     }
+  } catch (replyErr) {
+    console.error('⚠️ Error al responder la interacción:', replyErr);
   }
-});
+}
+
 // ---------- login ----------
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
@@ -435,6 +454,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
