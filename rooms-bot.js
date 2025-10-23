@@ -283,72 +283,73 @@ client.on('interactionCreate', async (interaction) => {
 
         // Guardar en Excel
         // --- Guardar en Google Sheets ---
+// --- Guardar en Google Sheets ---
 try {
   const { google } = require('googleapis');
 
-  // Credenciales (desde variables de entorno)
-  console.log("GOOGLE_CREDENTIALS exists?", !!process.env.GOOGLE_CREDENTIALS);
-  const { GoogleSpreadsheet } = require('google-spreadsheet');
+  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-  const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-  await doc.useServiceAccountAuth({
-  client_email: process.env.GOOGLE_CLIENT_EMAIL,
-  private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-});
-
+  if (!credentials || !spreadsheetId) {
+    console.error("❌ Faltan GOOGLE_CREDENTIALS o GOOGLE_SHEET_ID");
+    await interaction.reply({ content: '❌ Error interno (configuración incompleta).', ephemeral: true });
+    return;
+  }
 
   // Autenticación con cuenta de servicio
-  const sheetsClient = new google.auth.JWT(
-    creds.client_email,
-    null,
-    creds.private_key,
-    ['https://www.googleapis.com/auth/spreadsheets']
-  );
-  const sheetsApi = google.sheets({ version: 'v4', auth: sheetsClient });
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  const sheetsApi = google.sheets({ version: 'v4', auth });
 
-  // ID del documento (de Render)
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   const fecha = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+  const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
   const username = interaction.user.username;
 
-  // Verificar si la hoja existe, si no crearla
+  // 1️⃣ Verificar si existe la hoja de la modelo
   const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
-  const existing = meta.data.sheets.find(s => s.properties.title === username);
-  if (!existing) {
+  const existingSheet = meta.data.sheets.find(s => s.properties.title === username);
+
+  if (!existingSheet) {
+    console.log(`📄 Creando hoja nueva para ${username}`);
     await sheetsApi.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: { requests: [{ addSheet: { properties: { title: username } } }] }
+      requestBody: {
+        requests: [
+          { addSheet: { properties: { title: username } } },
+        ],
+      },
     });
     await sheetsApi.spreadsheets.values.update({
       spreadsheetId,
       range: `${username}!A1:H1`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora']] }
+      requestBody: { values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora']] },
     });
   }
 
-  // Leer datos existentes
+  // 2️⃣ Obtener datos previos (para el acumulado)
   const existingData = await sheetsApi.spreadsheets.values.get({
     spreadsheetId,
-    range: `${username}!A2:H`
+    range: `${username}!A2:H`,
   });
   const rows = existingData.data.values || [];
 
-  // Si es domingo, limpiar (reinicio semanal)
+  // 3️⃣ Reinicio semanal (si es domingo)
   const today = new Date();
   if (today.getDay() === 0 && rows.length > 0) {
     await sheetsApi.spreadsheets.values.clear({
       spreadsheetId,
-      range: `${username}!A2:H`
+      range: `${username}!A2:H`,
     });
   }
 
-  // Calcular acumulado
+  // 4️⃣ Calcular nuevo acumulado
   const acumuladoPrevio = rows.reduce((acc, r) => acc + (parseInt(r[5]) || 0), 0);
   const acumuladoNuevo = acumuladoPrevio + totalDiario;
 
-  // Registrar nueva fila
-  const hora = new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
+  // 5️⃣ Registrar nueva fila
   const nuevaFila = [
     fecha,
     results['AdultWork'],
@@ -357,21 +358,22 @@ try {
     results['BongaCams'],
     totalDiario,
     acumuladoNuevo,
-    hora
+    hora,
   ];
 
   await sheetsApi.spreadsheets.values.append({
     spreadsheetId,
     range: `${username}!A:H`,
     valueInputOption: 'RAW',
-    requestBody: { values: [nuevaFila] }
+    requestBody: { values: [nuevaFila] },
   });
 
   console.log(`✅ Resultados de ${username} guardados correctamente en Google Sheets.`);
 } catch (err) {
+  console.error('❌ Error guardando en Google Sheets:', err.message);
+} catch (err) {
   console.error('❌ Error guardando en Google Sheets:', err);
 }
-
         try {
           const resultsChannel = await client.channels.fetch(RESULTS_CHANNEL_ID);
           const embed = new EmbedBuilder()
@@ -439,6 +441,7 @@ async function testGoogleSheets() {
 }
 
 testGoogleSheets();
+
 
 
 
