@@ -72,8 +72,11 @@ function saveRooms() {
 }
 
 function getDateTime() {
-  const now = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
-  return now.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+  return new Date().toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
 }
 
 function sanitizeSheetName(name) {
@@ -444,6 +447,7 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
 
 
 
