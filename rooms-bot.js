@@ -195,14 +195,10 @@ async function saveResultsToGoogleSheets(usernameRaw, resultsObj, totalDiario) {
   const lastWeek = rows.length > 0 ? parseInt(rows[rows.length - 1][8] || 0) : 0;
 
   // ---------- Si cambia la semana, reiniciar ----------
+  // ---------- Si cambia la semana, no borrar datos, solo reiniciar el acumulado ----------
   if (lastWeek !== currentWeek && rows.length > 0) {
-    console.log(`🧹 Reiniciando hoja de ${username} (cambio de semana)`);
-    await sheetsApi.spreadsheets.values.clear({
-      spreadsheetId,
-      range: `${username}!A2:I`
-    });
+  console.log(`📅 Nueva semana detectada para ${username}. Se reinicia acumulado, pero se conservan los datos previos.`);
   }
-
   // ---------- Convertir correctamente los valores decimales ----------
   function toNumber(value) {
     return parseFloat((value || '0').toString().replace(',', '.')) || 0;
@@ -407,7 +403,7 @@ client.on('interactionCreate', async (interaction) => {
           platforms.forEach(p => {
             const raw = interaction.fields.getTextInputValue(`resultado_${p}`) || '0';
             // remove non digits and parse
-            const n = parseInt(String(raw).replace(/\D/g,''), 10);
+            const n = parseFloat(String(raw).replace(',', '.'));
             results[p] = isNaN(n) ? 0 : n;
           });
         } catch (errFields) {
@@ -465,6 +461,7 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
 
 
 
