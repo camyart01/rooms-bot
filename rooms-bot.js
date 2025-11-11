@@ -149,7 +149,6 @@ async function saveResultsToGoogleSheets(usernameRaw, resultsObj, totalDiario) {
 
   const username = sanitizeSheetName(usernameRaw);
   const credentials = JSON.parse(GOOGLE_CREDENTIALS);
-  // Private key may contain escaped newlines; ensure correct format
   if (credentials.private_key) credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
 
   const jwtClient = new google.auth.JWT({
@@ -162,62 +161,81 @@ async function saveResultsToGoogleSheets(usernameRaw, resultsObj, totalDiario) {
   const sheetsApi = google.sheets({ version: 'v4', auth: jwtClient });
   const spreadsheetId = GOOGLE_SHEET_ID;
 
-  // Ensure sheet exists
+  // ---------- Crear hoja si no existe ----------
   const meta = await sheetsApi.spreadsheets.get({ spreadsheetId });
   const existing = meta.data.sheets.find(s => s.properties.title === username);
   if (!existing) {
     await sheetsApi.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: {
-        requests: [
-          { addSheet: { properties: { title: username } } }
-        ]
-      }
+      requestBody: { requests: [{ addSheet: { properties: { title: username } } }] }
     });
-    // header row
     await sheetsApi.spreadsheets.values.update({
       spreadsheetId,
-      range: `${username}!A1:H1`,
+      range: `${username}!A1:I1`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Fecha','AdultWork','Stripchat','Streamate','BongaCams','Total_Diario','Acumulado_Semana','Hora']] }
+      requestBody: {
+        values: [['Fecha', 'AdultWork', 'Stripchat', 'Streamate', 'BongaCams', 'Total_Diario', 'Acumulado_Semana', 'Hora', 'Semana']]
+      }
     });
   }
 
-  // Read existing data
+  // ---------- Leer datos existentes ----------
   const existingData = await sheetsApi.spreadsheets.values.get({
     spreadsheetId,
-    range: `${username}!A2:H`
-  }).catch(e => ({ data: { values: [] } }));
+    range: `${username}!A2:I`
+  }).catch(() => ({ data: { values: [] } }));
   const rows = existingData.data.values || [];
 
-  // Reset weekly on Sunday (0)
-  const today = new Date();
-  if (today.getDay() === 0 && rows.length > 0) {
-    await sheetsApi.spreadsheets.values.clear({ spreadsheetId, range: `${username}!A2:H` });
-    rows.length = 0;
+  // ---------- Calcular semana actual ----------
+  const now = new Date();
+  const onejan = new Date(now.getFullYear(), 0, 1);
+  const currentWeek = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+
+  // Última semana registrada (si existe)
+  const lastWeek = rows.length > 0 ? parseInt(rows[rows.length - 1][8] || 0) : 0;
+
+  // ---------- Si cambia la semana, reiniciar ----------
+  if (lastWeek !== currentWeek && rows.length > 0) {
+    console.log(`🧹 Reiniciando hoja de ${username} (cambio de semana)`);
+    await sheetsApi.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${username}!A2:I`
+    });
   }
 
-  // Calculate previous accumulated (sum of Total_Diario column in existing rows index 5)
-  const acumuladoPrevio = rows.reduce((acc, r) => acc + (parseInt(r[5]) || 0), 0);
-  const acumuladoNuevo = acumuladoPrevio + totalDiario;
+  // ---------- Convertir correctamente los valores decimales ----------
+  function toNumber(value) {
+    return parseFloat((value || '0').toString().replace(',', '.')) || 0;
+  }
 
-  const fechaStr = today.toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
-  const horaStr = today.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
+  const fechaStr = now.toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+  const horaStr = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota' });
 
+  // ---------- Calcular acumulado semanal ----------
+  const refreshedData = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${username}!A2:I`
+  }).catch(() => ({ data: { values: [] } }));
+  const refreshedRows = refreshedData.data.values || [];
+  const acumuladoPrevio = refreshedRows.reduce((acc, r) => acc + (parseFloat(r[5]) || 0), 0);
+  const acumuladoNuevo = acumuladoPrevio + parseFloat(totalDiario);
+
+  // ---------- Nueva fila ----------
   const nuevaFila = [
     fechaStr,
-    resultsObj['AdultWork'] || 0,
-    resultsObj['Stripchat'] || 0,
-    resultsObj['Streamate'] || 0,
-    resultsObj['BongaCams'] || 0,
-    totalDiario,
+    toNumber(resultsObj['AdultWork']),
+    toNumber(resultsObj['Stripchat']),
+    toNumber(resultsObj['Streamate']),
+    toNumber(resultsObj['BongaCams']),
+    toNumber(totalDiario),
     acumuladoNuevo,
-    horaStr
+    horaStr,
+    currentWeek
   ];
 
   await sheetsApi.spreadsheets.values.append({
     spreadsheetId,
-    range: `${username}!A:H`,
+    range: `${username}!A:I`,
     valueInputOption: 'RAW',
     requestBody: { values: [nuevaFila] }
   });
@@ -447,6 +465,7 @@ client.on('interactionCreate', async (interaction) => {
 client.login(TOKEN).catch(err => {
   console.error('Error de login (token inválido?):', err);
 });
+
 
 
 
